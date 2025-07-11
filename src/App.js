@@ -7,16 +7,41 @@ import Footer from './Footer';
 import { useState, useEffect} from "react";
 
 function App() {
-  const [items, setItems] = useState(JSON.parse(localStorage.getItem('ShoppingList')) || []); //ShoppingList here is case sensitive with one set in the localStorage
+  const API_URL ='http://localhost:3500/items'
+
+  const [items, setItems] = useState([]); //ShoppingList here is case sensitive with one set in the localStorage
 
   const [newItem, setNewItem] = useState('');
 
   const [search, setSearch] = useState('');
 
+  const [fetchError, setFetchError] = useState(null);
 
-  useEffect(() => {
-    localStorage.setItem('ShoppingList', JSON.stringify(items));
-  }, [items])
+  const[isLoading, setIsLoading] = useState(true);
+
+
+  useEffect(() => { // we can't use async here directly we must make a method and call it 
+
+    const fetchItems = async () => {
+
+      try{
+        const response = await fetch(API_URL);
+        if(!response.ok) throw Error("Didn't received expected data");
+        const listItems =  await response.json();
+        setItems(listItems);
+        setFetchError(null);
+      } catch(err) {
+        setFetchError(err.message);
+      } finally{
+        setIsLoading(false);
+      }
+    }
+
+    setTimeout(() => { // we don't need this it is just simlulation for loading time 
+        (async () => await fetchItems())();//that is the original line without setTimeOut
+  },2000)
+    
+  }, [])//empty array means useEffect happens at a one time 
 
 
   // const setAndSaveItems = (newItems) => {
@@ -72,14 +97,17 @@ function App() {
           search = {search}
           setSearch = {setSearch}
         />
-
-        <Content
-          items = {items.filter(item =>((item.item).toLowerCase()).includes
-          (search.toLocaleLowerCase()))}
-          // setItems = {setItems}
-          handleCheck = {handleCheck}
-          handleDelete = {handleDelete}
-        />
+        <main>
+          {isLoading && <p>Loading Items...</p>}
+          {fetchError && <p style={{color: "red"}}>{`Error: ${fetchError}`}</p>}
+          {!fetchError && !isLoading && <Content
+            items = {items.filter(item =>((item.item).toLowerCase()).includes
+            (search.toLocaleLowerCase()))}
+            // setItems = {setItems}
+            handleCheck = {handleCheck}
+            handleDelete = {handleDelete}
+          />}
+        </main>
         <Footer  length = {items.length}/>
     </div>
   );
