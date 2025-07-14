@@ -5,6 +5,7 @@ import AddItem from './AddItem';
 import Content from './Content';
 import Footer from './Footer'; 
 import { useState, useEffect} from "react";
+import apiRequest from './apiRequest';
 
 function App() {
   const API_URL ='http://localhost:3500/items'
@@ -39,7 +40,7 @@ function App() {
 
     setTimeout(() => { // we don't need this it is just simlulation for loading time 
         (async () => await fetchItems())();//that is the original line without setTimeOut
-  },2000)
+    },2000)
     
   }, [])//empty array means useEffect happens at a one time 
 
@@ -49,25 +50,62 @@ function App() {
       
   // }
 
-  const addItem = (item) => {
+  const addItem = async (item) => {
     const id = items.length ? items[items.length - 1].id + 1 : 1;
     const myNewItem = {id, checked : false, item}
     const listItems = [...items, myNewItem];
     setItems(listItems);
+
+    const postOptions = {
+      method : 'POST',
+      Headers : {
+        'Content-Type':'applicaton/json'
+      },
+      body: JSON.stringify(myNewItem)
+    }
+    const result = await apiRequest(API_URL, postOptions);
+    if(result) setFetchError(result);
   }
 
-    const handleCheck = (id) =>{
-      const newListItems = items.map((item) => 
+    const handleCheck = async (id) =>{
+      const listItems = items.map((item) => 
       item.id === id //check if id refers to an item id in the list
-          ? {...item, checked: !item.checked } //if yes create new object item and reverse the check 
-          : item); // if false keep the item the same 
-          setItems(newListItems); // return new list 
-          
+          ? {...item, checked: !item.checked } // Toggle if it's the matching item
+          : item); // Otherwise, leave it unchanged
+
+          // Step 2: Update the UI immediately with the new list (React state)
+          setItems(listItems); 
+    
+      // Step 3: Find the updated item from the new list (for use in the PATCH request)      
+      const myItem = listItems.filter((item) =>item.id === id );
+
+      // Step 4: Prepare the options object for the PATCH request
+      const updateOptions = {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json' // Let the server know we are sending JSON
+        },
+        body: JSON.stringify({checked : myItem[0].checked})// Send the updated "checked" value
+      };      
+
+      // Step 5: Build the URL to update the specific item by ID
+      const reqUrl = `${API_URL}/${id}`;
+
+      // Step 6: Send the PATCH request to update the item in the backend (json-server)
+      const result = await apiRequest(reqUrl, updateOptions);
+
+      // Step 7: If there's an error (e.g., server is down), save it in fetchError to show in the UI
+      if(result) setFetchError(result); 
   }
 
-  const handleDelete = (id) =>{
-      const newListItems = items.filter((item) => item.id !== id ) 
-      setItems(newListItems); // return new list 
+  const handleDelete = async (id) =>{
+      const listItems = items.filter((item) => item.id !== id ) 
+        setItems(listItems); // return new list 
+
+      const deleteOptions = {method : 'DELETE'};
+      const reqUrl = `${API_URL}/${id}`;
+      const result = await apiRequest(reqUrl, deleteOptions);
+      if(result) setFetchError(result); 
   }
 
   const handleSubmit = (e) => {
